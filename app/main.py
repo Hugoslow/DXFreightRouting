@@ -11,7 +11,33 @@ from app.models import User, CollectionPoint, Depot, DailyVolume, ManualOverride
 import os
 
 app = FastAPI(title="DX Freight Routing System")
-
+# Temporary setup endpoint - DELETE AFTER USE
+@app.get("/setup-database")
+def setup_database(db: Session = Depends(get_db)):
+    from app.models import Base, User, Depot, CollectionPoint, CPDepotDistance
+    from app.auth import get_password_hash
+    from math import radians, sin, cos, sqrt, atan2
+    
+    # Create tables
+    Base.metadata.create_all(bind=db.get_bind())
+    
+    # Check if admin exists
+    existing_admin = db.query(User).filter(User.username == "admin").first()
+    if existing_admin:
+        return {"message": "Database already set up!"}
+    
+    # Create admin user
+    admin = User(
+        username="admin",
+        email="admin@dx.com",
+        password_hash=get_password_hash("admin123"),
+        role="Admin",
+        is_active=True
+    )
+    db.add(admin)
+    db.commit()
+    
+    return {"message": "Admin user created! Now import your data via the web interface. Username: admin, Password: admin123"}
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
