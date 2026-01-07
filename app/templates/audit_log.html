@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Audit Log</h2>
+    <p>System activity and change history</p>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <form method="get" action="/audit-log" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>From Date</label>
+            <input type="date" name="from_date" value="{{ from_date }}">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>To Date</label>
+            <input type="date" name="to_date" value="{{ to_date }}">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Action Type</label>
+            <select name="action_type">
+                <option value="">All Actions</option>
+                <option value="LOGIN_SUCCESS" {% if action_type == 'LOGIN_SUCCESS' %}selected{% endif %}>Login Success</option>
+                <option value="LOGIN_FAILED" {% if action_type == 'LOGIN_FAILED' %}selected{% endif %}>Login Failed</option>
+                <option value="OVERRIDE_CREATED" {% if action_type == 'OVERRIDE_CREATED' %}selected{% endif %}>Override Created</option>
+                <option value="OVERRIDE_DELETED" {% if action_type == 'OVERRIDE_DELETED' %}selected{% endif %}>Override Deleted</option>
+                <option value="VOLUME_IMPORT" {% if action_type == 'VOLUME_IMPORT' %}selected{% endif %}>Volume Import</option>
+                <option value="VOLUME_IMPORT_FAILED" {% if action_type == 'VOLUME_IMPORT_FAILED' %}selected{% endif %}>Volume Import Failed</option>
+                <option value="CAPACITY_OVERRIDE_CREATED" {% if action_type == 'CAPACITY_OVERRIDE_CREATED' %}selected{% endif %}>Capacity Override Created</option>
+                <option value="CAPACITY_OVERRIDE_DELETED" {% if action_type == 'CAPACITY_OVERRIDE_DELETED' %}selected{% endif %}>Capacity Override Deleted</option>
+                <option value="USER_CREATED" {% if action_type == 'USER_CREATED' %}selected{% endif %}>User Created</option>
+                <option value="USER_DISABLED" {% if action_type == 'USER_DISABLED' %}selected{% endif %}>User Disabled</option>
+                <option value="USER_ENABLED" {% if action_type == 'USER_ENABLED' %}selected{% endif %}>User Enabled</option>
+                <option value="PASSWORD_RESET" {% if action_type == 'PASSWORD_RESET' %}selected{% endif %}>Password Reset</option>
+                <option value="CP_CREATED" {% if action_type == 'CP_CREATED' %}selected{% endif %}>Collection Point Created</option>
+                <option value="DEPOT_CAPACITY_UPDATED" {% if action_type == 'DEPOT_CAPACITY_UPDATED' %}selected{% endif %}>Depot Capacity Updated</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>User</label>
+            <select name="user_id">
+                <option value="">All Users</option>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="/audit-log" class="btn btn-secondary">Clear</a>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Activity Log ({{ logs|length }} records)</h3>
+        <div>
+            <a href="/audit-log/export?from_date={{ from_date }}&to_date={{ to_date }}&action_type={{ action_type }}&user_id={{ user_id or '' }}" class="btn btn-success">
+                📥 Export to Excel
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if logs %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ log.timestamp }}</td>
+                        <td>{{ log.username }}</td>
+                        <td>
+                            {% if 'SUCCESS' in log.action_type or 'CREATED' in log.action_type or 'ENABLED' in log.action_type %}
+                            <span class="badge badge-success">{{ log.action_type }}</span>
+                            {% elif 'FAILED' in log.action_type %}
+                            <span class="badge badge-danger">{{ log.action_type }}</span>
+                            {% elif 'DELETED' in log.action_type or 'DISABLED' in log.action_type %}
+                            <span class="badge badge-warning">{{ log.action_type }}</span>
+                            {% elif 'IMPORT' in log.action_type %}
+                            <span class="badge badge-info">{{ log.action_type }}</span>
+                            {% elif 'UPDATED' in log.action_type or 'RESET' in log.action_type %}
+                            <span class="badge" style="background-color: #e2e3e5; color: #383d41;">{{ log.action_type }}</span>
+                            {% else %}
+                            <span class="badge badge-success">{{ log.action_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.entity_type }}: {{ log.entity_id }}</td>
+                        <td style="max-width: 300px;">
+                            {% if log.old_value %}<div style="color: #dc3545; font-size: 12px;">⊖ {{ log.old_value }}</div>{% endif %}
+                            {% if log.new_value %}<div style="color: #28a745; font-size: 12px;">⊕ {{ log.new_value }}</div>{% endif %}
+                        </td>
+                        <td style="font-family: monospace; font-size: 12px;">{{ log.ip_address }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="no-data">No audit records found matching your filters.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>About the Audit Log</h3>
+    </div>
+    <div class="card-body">
+        <p style="color: #666; font-size: 14px;">
+            The audit log provides a complete, immutable record of all changes made within the system. 
+            This supports operational accountability, troubleshooting, and compliance requirements.
+        </p>
+        <h4 style="font-size: 14px; margin-top: 15px; margin-bottom: 10px;">Logged Actions Include:</h4>
+        <ul class="info-list">
+            <li><strong>User Actions:</strong> Logins, logouts, password resets, user creation/status changes</li>
+            <li><strong>Overrides:</strong> Manual trailer redirects created or deleted</li>
+            <li><strong>Capacity:</strong> Temporary capacity override changes</li>
+            <li><strong>Imports:</strong> Volume data imports (success and failures)</li>
+            <li><strong>System:</strong> Collection point additions, depot capacity changes</li>
+        </ul>
+    </div>
+</div>
+
+{% endblock %}

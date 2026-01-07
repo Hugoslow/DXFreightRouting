@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+    <div>
+        <h2>Dashboard</h2>
+        <p>Overview of today's freight routing</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <div class="date-selector" style="margin-bottom: 0;">
+            <label for="selected-date">Date:</label>
+            <input type="date" id="selected-date" value="{{ selected_date }}">
+            <button class="btn btn-primary" onclick="changeDate()">Update</button>
+        </div>
+        <div style="display: flex; gap: 15px;">
+            <div style="text-align: center; padding: 10px 20px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase;">CPs</div>
+                <div style="font-size: 24px; font-weight: bold;">{{ stats.total_cps }}</div>
+            </div>
+            <div style="text-align: center; padding: 10px 20px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase;">Trailers</div>
+                <div style="font-size: 24px; font-weight: bold;">{{ stats.total_trailers }}</div>
+            </div>
+            <div style="text-align: center; padding: 10px 20px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase;">Parcels</div>
+                <div style="font-size: 24px; font-weight: bold;">{{ stats.total_parcels }}</div>
+            </div>
+            <div style="text-align: center; padding: 10px 20px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase;">Depots</div>
+                <div style="font-size: 24px; font-weight: bold;">{{ stats.depots_used }}</div>
+            </div>
+            <div style="text-align: center; padding: 10px 20px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase;">Est. Cost</div>
+                <div style="font-size: 24px; font-weight: bold; color: #00b4ff;">£{{ stats.estimated_cost }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if whats_new and (whats_new.total_changes > 0 or whats_new.failed_imports > 0) %}
+<div class="whats-new" id="whats-new-box">
+    <button class="close-btn" onclick="dismissWhatsNew()">&times;</button>
+    <h4>📢 What's New Since Your Last Login</h4>
+    <ul>
+        {% if whats_new.new_volumes > 0 %}
+        <li>✅ {{ whats_new.new_volumes }} new volume record(s) imported</li>
+        {% endif %}
+        {% if whats_new.new_overrides > 0 %}
+        <li>🔄 {{ whats_new.new_overrides }} override(s) added or modified</li>
+        {% endif %}
+        {% if whats_new.failed_imports > 0 %}
+        <li>⚠️ {{ whats_new.failed_imports }} failed import(s) requiring attention - <a href="/audit-log?action_type=VOLUME_IMPORT_FAILED">View Details</a></li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 15px;">
+    <div class="card-header">
+        <h3>Collection Points & Depot Allocations</h3>
+        <div>
+            <label style="font-size: 13px; margin-right: 10px;">
+                <input type="checkbox" id="toggle-lines" checked onchange="toggleAllocationLines()"> Show allocation lines
+            </label>
+        </div>
+    </div>
+    <div class="map-container" style="height: calc(100vh - 300px); min-height: 500px;">
+        <div id="map"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    var map = L.map('map').setView([52.5, -1.5], 6);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Add legend
+    var legend = L.control({position: 'topright'});
+    legend.onAdd = function(map) {
+        var div = L.DomUtil.create('div', 'map-legend');
+        div.style.backgroundColor = 'white';
+        div.style.padding = '10px 15px';
+        div.style.borderRadius = '5px';
+        div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+        div.style.fontSize = '13px';
+        div.innerHTML = 
+            '<div style="margin-bottom: 8px;"><span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #00b4ff; margin-right: 8px; vertical-align: middle;"></span>Depot</div>' +
+            '<div style="margin-bottom: 8px;"><span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #2e5a85; margin-right: 8px; vertical-align: middle;"></span>Collection Point</div>' +
+            '<div style="margin-bottom: 8px;"><span style="display: inline-block; width: 20px; height: 3px; background-color: #28a745; margin-right: 8px; vertical-align: middle;"></span>Standard Route</div>' +
+            '<div><span style="display: inline-block; width: 20px; height: 3px; background-color: #ff6b35; margin-right: 8px; vertical-align: middle;"></span>Override Route</div>';
+        return div;
+    };
+    legend.addTo(map);
+    
+    var depotIcon = L.divIcon({
+        className: 'depot-marker',
+        html: '<div style="background-color: #00b4ff; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        iconSize: [12, 12]
+    });
+    
+    var cpIcon = L.divIcon({
+        className: 'cp-marker',
+        html: '<div style="background-color: #2e5a85; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        iconSize: [10, 10]
+    });
+    
+    // CP data with volumes
+    var cpData = {
+        {% for cp in cp_volumes %}
+        "{{ cp.cpid }}": {
+            name: "{{ cp.name }}",
+            parcels: {{ cp.parcels }},
+            trailers: {{ cp.trailers }}
+        },
+        {% endfor %}
+    };
+    
+    // Depot data with allocations
+    var depotData = {
+        {% for depot in depot_stats %}
+        "{{ depot.depot_id }}": {
+            name: "{{ depot.name }}",
+            parcels: {{ depot.parcels }},
+            trailers: {{ depot.trailers }},
+            capacity: {{ depot.capacity }}
+        },
+        {% endfor %}
+    };
+    
+    // Add depot markers
+    {% for depot in depots %}
+    (function() {
+        var info = depotData["{{ depot.depot_id }}"] || {name: "{{ depot.name }}", parcels: 0, trailers: 0, capacity: {{ depot.daily_capacity }}};
+        var popupContent = '<strong>' + info.name + '</strong><br>' +
+            'ID: {{ depot.depot_id }}<br>' +
+            'Capacity: ' + info.capacity.toLocaleString() + '<br>' +
+            '<hr style="margin: 5px 0;">' +
+            '<strong>Today:</strong><br>' +
+            'Parcels: ' + info.parcels.toLocaleString() + '<br>' +
+            'Trailers: ' + info.trailers;
+        L.marker([{{ depot.latitude }}, {{ depot.longitude }}], {icon: depotIcon})
+            .bindPopup(popupContent)
+            .addTo(map);
+    })();
+    {% endfor %}
+    
+    // Add collection point markers
+    {% for cp in collection_points %}
+    (function() {
+        var info = cpData["{{ cp.cpid }}"] || {name: "{{ cp.name }}", parcels: 0, trailers: 0};
+        var popupContent = '<strong>' + info.name + '</strong><br>' +
+            'CPID: {{ cp.cpid }}<br>' +
+            '<hr style="margin: 5px 0;">' +
+            '<strong>Today:</strong><br>' +
+            'Parcels: ' + info.parcels.toLocaleString() + '<br>' +
+            'Trailers: ' + info.trailers;
+        L.marker([{{ cp.latitude }}, {{ cp.longitude }}], {icon: cpIcon})
+            .bindPopup(popupContent)
+            .addTo(map);
+    })();
+    {% endfor %}
+    
+    // Allocation lines layer group
+    var allocationLines = L.layerGroup().addTo(map);
+    
+    // Draw allocation lines from CPs to Depots
+    {% if allocation_lines %}
+    var lineData = [
+        {% for line in allocation_lines %}
+        {
+            cpLat: {{ line.cp_lat }},
+            cpLon: {{ line.cp_lon }},
+            depotLat: {{ line.depot_lat }},
+            depotLon: {{ line.depot_lon }},
+            cpid: "{{ line.cpid }}",
+            depotId: "{{ line.depot_id }}",
+            isOverride: {{ 'true' if line.is_override else 'false' }}
+        },
+        {% endfor %}
+    ];
+    
+    // Group lines by CP-Depot pair to avoid duplicate lines
+    var uniqueRoutes = {};
+    lineData.forEach(function(line) {
+        var key = line.cpid + '-' + line.depotId;
+        if (!uniqueRoutes[key]) {
+            uniqueRoutes[key] = line;
+        } else if (line.isOverride) {
+            uniqueRoutes[key].isOverride = true;
+        }
+    });
+    
+    // Draw the unique routes
+    Object.values(uniqueRoutes).forEach(function(line) {
+        var color = line.isOverride ? '#ff6b35' : '#28a745';
+        var polyline = L.polyline(
+            [[line.cpLat, line.cpLon], [line.depotLat, line.depotLon]],
+            {
+                color: color,
+                weight: 2,
+                opacity: 0.7,
+                dashArray: line.isOverride ? '5, 5' : null
+            }
+        );
+        polyline.bindPopup(line.cpid + ' → ' + line.depotId + (line.isOverride ? ' (Override)' : ''));
+        allocationLines.addLayer(polyline);
+    });
+    {% endif %}
+    
+    // Toggle allocation lines visibility
+    function toggleAllocationLines() {
+        var checkbox = document.getElementById('toggle-lines');
+        if (checkbox.checked) {
+            map.addLayer(allocationLines);
+        } else {
+            map.removeLayer(allocationLines);
+        }
+    }
+    
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/dashboard?date=' + date;
+    }
+    
+    function dismissWhatsNew() {
+        var box = document.getElementById('whats-new-box');
+        if (box) {
+            box.style.display = 'none';
+        }
+    }
+    
+    // Fit bounds to show all markers if we have data
+    {% if depots or collection_points %}
+    var allPoints = [];
+    {% for depot in depots %}
+    allPoints.push([{{ depot.latitude }}, {{ depot.longitude }}]);
+    {% endfor %}
+    {% for cp in collection_points %}
+    allPoints.push([{{ cp.latitude }}, {{ cp.longitude }}]);
+    {% endfor %}
+    if (allPoints.length > 0) {
+        map.fitBounds(allPoints, {padding: [20, 20]});
+    }
+    {% endif %}
+</script>
+{% endblock %}

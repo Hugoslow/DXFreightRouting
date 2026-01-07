@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Capacity Overrides - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Capacity Overrides</h2>
+    <p>Temporarily adjust depot capacity for specific dates</p>
+</div>
+
+<div class="date-selector" style="margin-bottom: 20px;">
+    <label for="selected-date">Selected Date:</label>
+    <input type="date" id="selected-date" value="{{ selected_date }}">
+    <button class="btn btn-primary" onclick="changeDate()">Update</button>
+</div>
+
+{% if message %}
+<div class="alert {% if error %}alert-error{% else %}alert-success{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3>Add Capacity Override</h3>
+    </div>
+    <div class="card-body">
+        <form action="/capacity-overrides/add" method="post">
+            <input type="hidden" name="date" value="{{ selected_date }}">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Depot</label>
+                    <select name="depot_id" required>
+                        <option value="">Select Depot...</option>
+                        {% for depot in depots %}
+                        <option value="{{ depot.depot_id }}">{{ depot.depot_id }} - {{ depot.name }} (Normal: {{ depot.daily_capacity }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Override Capacity</label>
+                    <input type="number" name="override_capacity" min="0" required placeholder="e.g. 15000">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Reason (optional)</label>
+                    <input type="text" name="reason" placeholder="e.g. Bank holiday reduced staff">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Override</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Active Overrides for {{ selected_date }}</h3>
+        <span style="color: #666; font-size: 13px;">{{ overrides|length }} override(s)</span>
+    </div>
+    <div class="card-body">
+        {% if overrides %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Depot</th>
+                    <th>Normal Capacity</th>
+                    <th>Override Capacity</th>
+                    <th>Change</th>
+                    <th>Reason</th>
+                    <th>Created By</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in overrides %}
+                <tr>
+                    <td><strong>{{ o.depot_id }}</strong> - {{ o.depot_name }}</td>
+                    <td>{{ "{:,}".format(o.original_capacity) }}</td>
+                    <td>{{ "{:,}".format(o.override_capacity) }}</td>
+                    <td>
+                        {% if o.override_capacity > o.original_capacity %}
+                        <span class="badge badge-success">+{{ "{:,}".format(o.override_capacity - o.original_capacity) }}</span>
+                        {% elif o.override_capacity < o.original_capacity %}
+                        <span class="badge badge-warning">{{ "{:,}".format(o.override_capacity - o.original_capacity) }}</span>
+                        {% else %}
+                        <span class="badge">No change</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ o.reason or '-' }}</td>
+                    <td>{{ o.created_by_name }}</td>
+                    <td>
+                        <form action="/capacity-overrides/delete/{{ o.id }}" method="post" style="display: inline;" onsubmit="return confirm('Delete this capacity override?');">
+                            <input type="hidden" name="date" value="{{ selected_date }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No capacity overrides for this date. All depots using normal capacity.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>How Capacity Overrides Work</h3>
+    </div>
+    <div class="card-body">
+        <ul class="info-list">
+            <li><strong>Purpose:</strong> Temporarily increase or decrease a depot's capacity for a specific date (e.g. bank holidays, maintenance, extra staff).</li>
+            <li><strong>Effect:</strong> The routing algorithm uses the override capacity instead of the normal capacity when allocating trailers.</li>
+            <li><strong>Scope:</strong> Each override applies to one depot on one specific date only.</li>
+            <li><strong>Audit:</strong> All capacity changes are logged in the audit trail.</li>
+        </ul>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/capacity-overrides?date=' + date;
+    }
+</script>
+{% endblock %}

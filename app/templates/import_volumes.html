@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Import Volumes - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Import Daily Volumes</h2>
+    <p>Upload volume data from Excel file or use automated folder import</p>
+</div>
+
+{% if message %}
+<div class="alert {% if error %}alert-error{% else %}alert-success{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Manual Upload</h3>
+        </div>
+        <div class="card-body">
+            <form action="/import-volumes" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Select Excel file (.xlsx)</label>
+                    <input type="file" name="file" accept=".xlsx" required style="width: 100%;">
+                </div>
+                <button type="submit" class="btn btn-primary">Import</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Download Templates</h3>
+        </div>
+        <div class="card-body">
+            <p style="color: #666; margin-bottom: 15px;">Download blank templates with the correct format:</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="/download-template/volumes" class="btn btn-primary">
+                    📥 Volume Import Template
+                </a>
+                <a href="/download-template/capacity" class="btn btn-secondary">
+                    📥 Capacity Override Template
+                </a>
+            <a href="/download-template/cplist" class="btn btn-secondary">
+    📥 Collection Point List
+</a>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="border-left: 4px solid #0099da;">
+    <div class="card-header">
+        <h3>📁 Automated Folder Import</h3>
+    </div>
+    <div class="card-body">
+        <p style="color: #666; margin-bottom: 15px;">
+            For automated processing, save your volume files to the watched folder. Files are checked every 5 minutes.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Folder</th>
+                    <th>Path</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-info">Incoming</span></td>
+                    <td><code style="background: #f5f5f5; padding: 5px 10px; border-radius: 3px;">{{ folder_info.incoming }}</code></td>
+                    <td>Drop files here for automatic processing</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">Processed</span></td>
+                    <td><code style="background: #f5f5f5; padding: 5px 10px; border-radius: 3px;">{{ folder_info.processed }}</code></td>
+                    <td>Successfully imported files are moved here</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-danger">Errors</span></td>
+                    <td><code style="background: #f5f5f5; padding: 5px 10px; border-radius: 3px;">{{ folder_info.errors }}</code></td>
+                    <td>Failed imports with error reports</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="color: #888; font-size: 13px; margin-top: 15px;">
+            <strong>Tip:</strong> Use naming convention <code>Volumes_YYYY-MM-DD.xlsx</code> for easy tracking.
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Expected File Format</h3>
+    </div>
+    <div class="card-body">
+        <p style="color: #666; margin-bottom: 15px;">Your Excel file must have these columns (in any order):</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Column</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                    <th>Required</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Date</strong></td>
+                    <td>Collection date</td>
+                    <td>2026-01-06 or 06/01/2026</td>
+                    <td><span class="badge badge-success">Yes</span></td>
+                </tr>
+                <tr>
+                    <td><strong>CPID</strong></td>
+                    <td>Collection Point ID (must exist in system)</td>
+                    <td>CP001</td>
+                    <td><span class="badge badge-success">Yes</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Parcels</strong></td>
+                    <td>Number of parcels</td>
+                    <td>1500</td>
+                    <td><span class="badge badge-success">Yes</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Trailers</strong></td>
+                    <td>Number of trailers</td>
+                    <td>2</td>
+                    <td><span class="badge badge-success">Yes</span></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+            <h4 style="font-size: 14px; margin-bottom: 10px;">Validation Rules:</h4>
+            <ul style="color: #666; font-size: 13px; margin-left: 20px;">
+                <li>CPID must exist in the system - unknown CPIDs will be rejected</li>
+                <li>Parcels and Trailers must be positive numbers</li>
+                <li>Duplicate entries (same date + CPID) will be skipped</li>
+                <li>Files can contain data for any date, including future dates</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Recent Imports</h3>
+    </div>
+    <div class="card-body">
+        {% if recent_imports %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Records</th>
+                    <th>Imported By</th>
+                    <th>Imported At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for imp in recent_imports %}
+                <tr>
+                    <td>{{ imp.date }}</td>
+                    <td>{{ imp.count }}</td>
+                    <td>{{ imp.user }}</td>
+                    <td>{{ imp.imported_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No imports yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Expected Costs - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Expected Costs</h2>
+    <p>Transport cost breakdown</p>
+</div>
+
+<div class="date-selector" style="margin-bottom: 20px;">
+    <label for="selected-date">Selected Date:</label>
+    <input type="date" id="selected-date" value="{{ selected_date }}">
+    <button class="btn btn-primary" onclick="changeDate()">Update</button>
+</div>
+
+{% if filter_type %}
+<div class="filter-bar">
+    <span>Filtered by <strong>{{ filter_type }}</strong>: {{ filter_value }}</span>
+    <a href="/expected-costs?date={{ selected_date }}" class="btn btn-sm btn-secondary">Clear Filter</a>
+</div>
+{% endif %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Cost</h3>
+        <div class="value cost">£{{ "%.2f"|format(summary.total_cost) }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Trailers</h3>
+        <div class="value">{{ summary.total_trailers }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Parcels</h3>
+        <div class="value">{{ "{:,}".format(summary.total_parcels) }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Avg Cost/Trailer</h3>
+        <div class="value">£{{ "%.2f"|format(summary.avg_cost_per_trailer) }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Cost/Parcel</h3>
+        <div class="value">£{{ "%.4f"|format(summary.cost_per_parcel) }}</div>
+        <div class="subtitle">{{ "%.2f"|format(summary.cost_per_parcel * 100) }}p per parcel</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Miles</h3>
+        <div class="value">{{ "%.0f"|format(summary.total_miles) }}</div>
+    </div>
+</div>
+
+{% if costs_by_cp %}
+<div class="card">
+    <div class="card-header">
+        <h3>Costs by Collection Point</h3>
+        <span style="color: #666; font-size: 13px;">Click any row to filter</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>CPID</th>
+                    <th>Collection Point</th>
+                    <th>Trailers</th>
+                    <th>Parcels</th>
+                    <th>Total Miles</th>
+                    <th>Total Cost</th>
+                    <th>Avg Cost/Trailer</th>
+                    <th>Cost/Parcel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cp in costs_by_cp %}
+                <tr onclick="filterByCp('{{ cp.cpid }}')" style="cursor: pointer;">
+                    <td class="clickable">{{ cp.cpid }}</td>
+                    <td>{{ cp.name }}</td>
+                    <td>{{ cp.trailers }}</td>
+                    <td>{{ "{:,}".format(cp.parcels) }}</td>
+                    <td>{{ "%.1f"|format(cp.total_miles) }}</td>
+                    <td><strong>£{{ "%.2f"|format(cp.total_cost) }}</strong></td>
+                    <td>£{{ "%.2f"|format(cp.avg_cost) }}</td>
+                    <td>
+                        <span class="badge {% if cp.cost_per_parcel > summary.cost_per_parcel * 1.2 %}badge-warning{% elif cp.cost_per_parcel < summary.cost_per_parcel * 0.8 %}badge-success{% endif %}">
+                            {{ "%.2f"|format(cp.cost_per_parcel * 100) }}p
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Costs by Depot</h3>
+        <span style="color: #666; font-size: 13px;">Click any row to filter</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Depot ID</th>
+                    <th>Depot Name</th>
+                    <th>Trailers</th>
+                    <th>Parcels</th>
+                    <th>Total Miles</th>
+                    <th>Total Cost</th>
+                    <th>Cost/Parcel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for depot in costs_by_depot %}
+                <tr onclick="filterByDepot('{{ depot.depot_id }}')" style="cursor: pointer;">
+                    <td class="clickable">{{ depot.depot_id }}</td>
+                    <td>{{ depot.name }}</td>
+                    <td>{{ depot.trailers }}</td>
+                    <td>{{ "{:,}".format(depot.parcels) }}</td>
+                    <td>{{ "%.1f"|format(depot.total_miles) }}</td>
+                    <td><strong>£{{ "%.2f"|format(depot.total_cost) }}</strong></td>
+                    <td>
+                        <span class="badge {% if depot.cost_per_parcel > summary.cost_per_parcel * 1.2 %}badge-warning{% elif depot.cost_per_parcel < summary.cost_per_parcel * 0.8 %}badge-success{% endif %}">
+                            {{ "%.2f"|format(depot.cost_per_parcel * 100) }}p
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Cost Calculation Method</h3>
+    </div>
+    <div class="card-body">
+        <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+            Transport costs are calculated per trailer using the following formula:
+        </p>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; margin-bottom: 15px;">
+            Cost = £50 (base) + (miles × £1.50)<br>
+            Minimum charge: £120 per trailer
+        </div>
+        <p style="color: #888; font-size: 13px;">
+            Distance is calculated using the Haversine formula (straight-line distance). 
+            Actual road distances may vary.
+        </p>
+    </div>
+</div>
+
+{% else %}
+<div class="card">
+    <p class="no-data">
+        No cost data for this date. Import volumes to see cost calculations.
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/expected-costs?date=' + date;
+    }
+    
+    function filterByCp(cpid) {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/expected-costs?date=' + date + '&cpid=' + cpid;
+    }
+    
+    function filterByDepot(depotId) {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/expected-costs?date=' + date + '&depot=' + depotId;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}System Setup - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>System Setup</h2>
+    <p>Manage collection points and depot configuration</p>
+</div>
+
+{% if message %}
+<div class="alert {% if error %}alert-error{% else %}alert-success{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3>Add New Collection Point</h3>
+    </div>
+    <div class="card-body">
+        <form action="/admin/setup/add-cp" method="post">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>CPID</label>
+                    <input type="text" name="cpid" required placeholder="e.g. CP407">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Name</label>
+                    <input type="text" name="name" required placeholder="e.g. Manchester North">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Latitude</label>
+                    <input type="number" step="any" name="latitude" required placeholder="e.g. 53.4808">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Longitude</label>
+                    <input type="number" step="any" name="longitude" required placeholder="e.g. -2.2426">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Collection Point</button>
+        </form>
+        <p style="color: #888; font-size: 13px; margin-top: 15px;">
+            <strong>Note:</strong> Distances to all depots will be calculated automatically when you add a new collection point.
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Collection Points ({{ collection_points|length }})</h3>
+        <a href="/admin/setup/export-cps" class="btn btn-success">📥 Export to Excel</a>
+    </div>
+    <div class="card-body">
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>CPID</th>
+                        <th>Name</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cp in collection_points %}
+                    <tr>
+                        <td><strong>{{ cp.cpid }}</strong></td>
+                        <td>{{ cp.name }}</td>
+                        <td>{{ "%.4f"|format(cp.latitude) }}</td>
+                        <td>{{ "%.4f"|format(cp.longitude) }}</td>
+                        <td>
+                            {% if cp.is_active %}
+                            <span class="badge badge-success">Active</span>
+                            {% else %}
+                            <span class="badge badge-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Depots ({{ depots|length }})</h3>
+        <a href="/admin/setup/export-depots" class="btn btn-success">📥 Export to Excel</a>
+    </div>
+    <div class="card-body">
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Depot ID</th>
+                        <th>Name</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Daily Capacity</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for depot in depots %}
+                    <tr>
+                        <td><strong>{{ depot.depot_id }}</strong></td>
+                        <td>{{ depot.name }}</td>
+                        <td>{{ "%.4f"|format(depot.latitude) }}</td>
+                        <td>{{ "%.4f"|format(depot.longitude) }}</td>
+                        <td>{{ "{:,}".format(depot.daily_capacity) }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="editCapacity('{{ depot.depot_id }}', '{{ depot.name }}', {{ depot.daily_capacity }})">Edit Capacity</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Capacity Modal -->
+<div id="capacity-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 30px; border-radius: 8px; width: 400px; max-width: 90%;">
+        <h3 style="margin-bottom: 20px;">Edit Depot Capacity</h3>
+        <form action="/admin/setup/update-capacity" method="post">
+            <input type="hidden" name="depot_id" id="modal-depot-id">
+            <div class="form-group">
+                <label>Depot</label>
+                <input type="text" id="modal-depot-name" disabled style="background: #f5f5f5;">
+            </div>
+            <div class="form-group">
+                <label>Daily Capacity (parcels)</label>
+                <input type="number" name="capacity" id="modal-capacity" required min="0">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function editCapacity(depotId, depotName, currentCapacity) {
+        document.getElementById('modal-depot-id').value = depotId;
+        document.getElementById('modal-depot-name').value = depotName;
+        document.getElementById('modal-capacity').value = currentCapacity;
+        document.getElementById('capacity-modal').style.display = 'flex';
+    }
+    
+    function closeModal() {
+        document.getElementById('capacity-modal').style.display = 'none';
+    }
+    
+    // Close modal on background click
+    document.getElementById('capacity-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+</script>
+{% endblock %}

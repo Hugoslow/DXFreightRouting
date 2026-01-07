@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Collections - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Collections</h2>
+    <p>Daily collection allocations and routing</p>
+</div>
+
+<div class="date-selector" style="margin-bottom: 20px;">
+    <label for="selected-date">Selected Date:</label>
+    <input type="date" id="selected-date" value="{{ selected_date }}">
+    <button class="btn btn-primary" onclick="changeDate()">Update</button>
+</div>
+
+{% if filter_type %}
+<div class="card" style="margin-bottom: 20px; border-left: 4px solid #00b4ff;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #333;"><strong>Filtered by:</strong> {{ filter_type }} = {{ filter_value }} ({{ allocations|length }} trailers)</span>
+        <a href="/collections?date={{ selected_date }}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">✕ Clear Filter</a>
+    </div>
+</div>
+{% endif %}
+
+{% if allocations %}
+<div class="card">
+    <div class="card-header">
+        <h3>Allocations ({{ allocations|length }} trailers)</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>CPID</th>
+                <th>Collection Point</th>
+                <th>Trailer #</th>
+                <th>Parcels</th>
+                <th>Depot</th>
+                <th>Distance (miles)</th>
+                <th>Cost</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alloc in allocations %}
+            <tr>
+                <td><a href="/collections?date={{ selected_date }}&cpid={{ alloc.cpid }}" style="color: #0099da; text-decoration: none;">{{ alloc.cpid }}</a></td>
+                <td><a href="/collections?date={{ selected_date }}&cpid={{ alloc.cpid }}" style="color: #0099da; text-decoration: none;">{{ alloc.cp_name }}</a></td>
+                <td>{{ alloc.trailer_num }}</td>
+                <td>{{ alloc.parcels }}</td>
+                <td><a href="/collections?date={{ selected_date }}&depot={{ alloc.depot_id }}" style="color: #0099da; text-decoration: none;">{{ alloc.depot_name }}</a></td>
+                <td>{{ "%.1f"|format(alloc.distance) }}</td>
+                <td>£{{ "%.2f"|format(alloc.cost) }}</td>
+                <td>
+                    {% if alloc.is_override %}
+                    <span class="badge badge-warning">Override</span>
+                    {% else %}
+                    <span class="badge badge-success">Auto</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Depot Capacity Summary</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Depot</th>
+                <th>Allocated Parcels</th>
+                <th>Capacity</th>
+                <th>Utilisation</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for depot in depot_summary %}
+            <tr>
+                <td><a href="/collections?date={{ selected_date }}&depot={{ depot.depot_id }}" style="color: #0099da; text-decoration: none;">{{ depot.name }}</a></td>
+                <td>{{ depot.allocated_parcels }}</td>
+                <td>{{ depot.capacity }}</td>
+                <td>{{ "%.1f"|format(depot.utilisation) }}%</td>
+                <td>
+                    {% if depot.utilisation >= 100 %}
+                    <span class="badge badge-danger">Over Capacity</span>
+                    {% elif depot.utilisation >= 80 %}
+                    <span class="badge badge-warning">High</span>
+                    {% else %}
+                    <span class="badge badge-success">OK</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="card">
+    <p style="color: #666; text-align: center; padding: 40px;">
+        No volume data for this date. <a href="/import-volumes">Import volumes</a> to see allocations.
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/collections?date=' + date;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Depot Allocations - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Depot Allocations</h2>
+    <p>View allocations by depot</p>
+</div>
+
+<div class="date-selector" style="margin-bottom: 20px;">
+    <label for="selected-date">Selected Date:</label>
+    <input type="date" id="selected-date" value="{{ selected_date }}">
+    <button class="btn btn-primary" onclick="changeDate()">Update</button>
+</div>
+
+{% if selected_depot %}
+<div class="card" style="margin-bottom: 20px; border-left: 4px solid #00b4ff;">
+    <div class="card-header">
+        <h3>Detail: {{ selected_depot.name }}</h3>
+        <a href="/depot-allocations?date={{ selected_date }}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">✕ Close</a>
+    </div>
+    <p style="color: #666; margin-bottom: 15px;">
+        Capacity: {{ selected_depot.capacity }} | 
+        Allocated: {{ selected_depot.allocated_parcels }} parcels | 
+        Utilisation: {{ "%.1f"|format(selected_depot.utilisation) }}%
+    </p>
+    {% if selected_depot.allocations %}
+    <table>
+        <thead>
+            <tr>
+                <th>CPID</th>
+                <th>Collection Point</th>
+                <th>Trailer #</th>
+                <th>Parcels</th>
+                <th>Distance (miles)</th>
+                <th>Cost</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alloc in selected_depot.allocations %}
+            <tr>
+                <td>{{ alloc.cpid }}</td>
+                <td>{{ alloc.cp_name }}</td>
+                <td>{{ alloc.trailer_num }}</td>
+                <td>{{ alloc.parcels }}</td>
+                <td>{{ "%.1f"|format(alloc.distance) }}</td>
+                <td>£{{ "%.2f"|format(alloc.cost) }}</td>
+                <td>
+                    {% if alloc.is_override %}
+                    <span class="badge badge-warning">Override</span>
+                    {% else %}
+                    <span class="badge badge-success">Auto</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if depot_summary %}
+<div class="card">
+    <div class="card-header">
+        <h3>Depot Summary</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Depot ID</th>
+                <th>Depot Name</th>
+                <th>Trailers</th>
+                <th>Parcels</th>
+                <th>Capacity</th>
+                <th>Utilisation</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for depot in depot_summary %}
+            <tr style="{% if selected_depot and selected_depot.depot_id == depot.depot_id %}background-color: #e8f4fc;{% endif %}">
+                <td>{{ depot.depot_id }}</td>
+                <td>{{ depot.name }}</td>
+                <td>{{ depot.trailer_count }}</td>
+                <td>{{ depot.allocated_parcels }}</td>
+                <td>{{ depot.capacity }}</td>
+                <td>{{ "%.1f"|format(depot.utilisation) }}%</td>
+                <td>
+                    {% if depot.utilisation >= 100 %}
+                    <span class="badge badge-danger">Over Capacity</span>
+                    {% elif depot.utilisation >= 80 %}
+                    <span class="badge badge-warning">High</span>
+                    {% else %}
+                    <span class="badge badge-success">OK</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/depot-allocations?date={{ selected_date }}&depot={{ depot.depot_id }}" class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;">View Detail</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <p style="color: #a0a0a0; text-align: center; padding: 40px;">
+        No allocations for this date.
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/depot-allocations?date=' + date;
+    }
+</script>
+{% endblock %}

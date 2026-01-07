@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Overrides - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Manual Overrides</h2>
+    <p>Redirect specific trailers to different depots</p>
+</div>
+
+<div class="date-selector" style="margin-bottom: 20px;">
+    <label for="selected-date">Selected Date:</label>
+    <input type="date" id="selected-date" value="{{ selected_date }}">
+    <button class="btn btn-primary" onclick="changeDate()">Update</button>
+</div>
+
+{% if message %}
+<div class="alert {% if error %}alert-error{% else %}alert-success{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+{% if user.role in ['Admin', 'Operator'] %}
+<div class="card">
+    <div class="card-header">
+        <h3>Add New Override</h3>
+    </div>
+    <div class="card-body">
+        {% if collection_points %}
+        <form action="/overrides/add" method="post">
+            <input type="hidden" name="date" value="{{ selected_date }}">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Collection Point</label>
+                    <select name="cpid" id="cp-select" required onchange="updateTrailerMax()">
+                        <option value="">Select CP...</option>
+                        {% for cp in collection_points %}
+                        <option value="{{ cp.cpid }}" data-trailers="{{ cp.max_trailers }}">{{ cp.cpid }} - {{ cp.name }} ({{ cp.max_trailers }} trailers)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Trailer Number</label>
+                    <select name="trailer_number" id="trailer-select" required>
+                        <option value="">Select CP first...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Send To Depot</label>
+                    <select name="to_depot_id" required>
+                        <option value="">Select Depot...</option>
+                        {% for depot in depots %}
+                        <option value="{{ depot.depot_id }}">{{ depot.depot_id }} - {{ depot.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Override</button>
+        </form>
+        {% else %}
+        <div class="alert alert-info">
+            <strong>No collection points have volumes for {{ selected_date }}.</strong><br>
+            Import volume data first, or select a different date that has volumes.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3>Current Overrides for {{ selected_date }}</h3>
+        <span style="color: #666; font-size: 13px;">{{ overrides|length }} override(s)</span>
+    </div>
+    <div class="card-body">
+        {% if overrides %}
+        <table>
+            <thead>
+                <tr>
+                    <th>CPID</th>
+                    <th>Collection Point</th>
+                    <th>Trailer #</th>
+                    <th>Override Depot</th>
+                    <th>Created By</th>
+                    <th>Created At</th>
+                    {% if user.role in ['Admin', 'Operator'] %}
+                    <th>Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in overrides %}
+                <tr>
+                    <td><strong>{{ o.cpid }}</strong></td>
+                    <td>{{ o.cp_name }}</td>
+                    <td><span class="badge badge-info">Trailer {{ o.trailer_number }}</span></td>
+                    <td>{{ o.to_depot_id }} - {{ o.depot_name }}</td>
+                    <td>{{ o.created_by_name }}</td>
+                    <td>{{ o.created_at }}</td>
+                    {% if user.role in ['Admin', 'Operator'] %}
+                    <td>
+                        <form action="/overrides/delete/{{ o.id }}" method="post" style="display: inline;" onsubmit="return confirm('Delete this override?');">
+                            <input type="hidden" name="date" value="{{ selected_date }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No overrides for this date. Trailers will be allocated based on distance ranking.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>How Overrides Work</h3>
+    </div>
+    <div class="card-body">
+        <ul class="info-list">
+            <li><strong>Purpose:</strong> Manually redirect a specific trailer from a collection point to a different depot than the system would normally assign.</li>
+            <li><strong>Priority:</strong> Overrides take precedence over the automatic distance-based allocation.</li>
+            <li><strong>Scope:</strong> Each override applies to one specific trailer on one specific date.</li>
+            <li><strong>Audit:</strong> All override changes are logged in the audit trail.</li>
+        </ul>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function changeDate() {
+        var date = document.getElementById('selected-date').value;
+        window.location.href = '/overrides?date=' + date;
+    }
+    
+    function updateTrailerMax() {
+        var cpSelect = document.getElementById('cp-select');
+        var trailerSelect = document.getElementById('trailer-select');
+        var selectedOption = cpSelect.options[cpSelect.selectedIndex];
+        
+        // Clear existing options
+        trailerSelect.innerHTML = '';
+        
+        if (selectedOption.value === '') {
+            trailerSelect.innerHTML = '<option value="">Select CP first...</option>';
+            return;
+        }
+        
+        var maxTrailers = parseInt(selectedOption.getAttribute('data-trailers')) || 1;
+        
+        for (var i = 1; i <= maxTrailers; i++) {
+            var option = document.createElement('option');
+            option.value = i;
+            option.text = 'Trailer ' + i;
+            trailerSelect.appendChild(option);
+        }
+    }
+</script>
+{% endblock %}
