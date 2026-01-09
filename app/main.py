@@ -14,7 +14,7 @@ app = FastAPI(title="DX Freight Routing System")
 
 @app.get("/cleanup-depots")
 def cleanup_depots(db: Session = Depends(get_db)):
-    from app.models import Depot
+    from app.models import Depot, CPDepotDistance
     
     # These are the ONLY depot IDs that should exist
     valid_depot_ids = [
@@ -27,9 +27,13 @@ def cleanup_depots(db: Session = Depends(get_db)):
         "D0206", "D0075", "D0076", "D0037"
     ]
     
-    # Find and delete depots not in the valid list
-    old_depots = db.query(Depot).filter(~Depot.depot_id.in_(valid_depot_ids)).all()
+    # First, delete distance records for old depots
+    distances_deleted = db.query(CPDepotDistance).filter(
+        ~CPDepotDistance.depot_id.in_(valid_depot_ids)
+    ).delete(synchronize_session=False)
     
+    # Now delete the old depots
+    old_depots = db.query(Depot).filter(~Depot.depot_id.in_(valid_depot_ids)).all()
     deleted_ids = [d.depot_id for d in old_depots]
     deleted_count = len(old_depots)
     
@@ -41,9 +45,9 @@ def cleanup_depots(db: Session = Depends(get_db)):
     return {
         "message": "Old depots removed!",
         "depots_deleted": deleted_count,
-        "deleted_ids": deleted_ids
+        "deleted_ids": deleted_ids,
+        "distance_records_deleted": distances_deleted
     }
-
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
