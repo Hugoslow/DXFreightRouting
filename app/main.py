@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import User, CollectionPoint, Depot, DailyVolume, ManualOverride, AuditLog, CPDepotDistance, CapacityOverride
 import os
 
+app = FastAPI(title="DX Freight Routing System")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
