@@ -14,7 +14,7 @@ app = FastAPI(title="DX Freight Routing System")
 
 @app.get("/cleanup-depots")
 def cleanup_depots(db: Session = Depends(get_db)):
-    from app.models import Depot, CPDepotDistance
+    from app.models import Depot, CPDepotDistance, CapacityOverride, ManualOverride
     
     # These are the ONLY depot IDs that should exist
     valid_depot_ids = [
@@ -27,27 +27,34 @@ def cleanup_depots(db: Session = Depends(get_db)):
         "D0206", "D0075", "D0076", "D0037"
     ]
     
-    # First, delete distance records for old depots
+    # Delete related records first
     distances_deleted = db.query(CPDepotDistance).filter(
         ~CPDepotDistance.depot_id.in_(valid_depot_ids)
     ).delete(synchronize_session=False)
     
-    # Now delete the old depots
-    old_depots = db.query(Depot).filter(~Depot.depot_id.in_(valid_depot_ids)).all()
-    deleted_ids = [d.depot_id for d in old_depots]
-    deleted_count = len(old_depots)
+    capacity_overrides_deleted = db.query(CapacityOverride).filter(
+        ~CapacityOverride.depot_id.in_(valid_depot_ids)
+    ).delete(synchronize_session=False)
     
-    for depot in old_depots:
-        db.delete(depot)
+    manual_overrides_deleted = db.query(ManualOverride).filter(
+        ~ManualOverride.to_depot_id.in_(valid_depot_ids)
+    ).delete(synchronize_session=False)
+    
+    # Now delete the old depots
+    depots_deleted = db.query(Depot).filter(
+        ~Depot.depot_id.in_(valid_depot_ids)
+    ).delete(synchronize_session=False)
     
     db.commit()
     
     return {
         "message": "Old depots removed!",
-        "depots_deleted": deleted_count,
-        "deleted_ids": deleted_ids,
-        "distance_records_deleted": distances_deleted
+        "depots_deleted": depots_deleted,
+        "distance_records_deleted": distances_deleted,
+        "capacity_overrides_deleted": capacity_overrides_deleted,
+        "manual_overrides_deleted": manual_overrides_deleted
     }
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
