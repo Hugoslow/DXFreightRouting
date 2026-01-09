@@ -12,95 +12,36 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
-@app.get("/update-depots")
-def update_depots(db: Session = Depends(get_db)):
+@app.get("/cleanup-depots")
+def cleanup_depots(db: Session = Depends(get_db)):
     from app.models import Depot
     
-    updated_depots = [
-        {"depot_id": "D0012", "name": "ABERDEEN", "latitude": 57.0696, "longitude": -2.1626, "daily_capacity": 0},
-        {"depot_id": "D0056", "name": "WLO", "latitude": 51.522517, "longitude": -0.278034, "daily_capacity": 1000},
-        {"depot_id": "D0050", "name": "MAIDSTONE", "latitude": 51.3045, "longitude": 0.4986, "daily_capacity": 1000},
-        {"depot_id": "D0051", "name": "BASILDON", "latitude": 51.5897, "longitude": 0.4953, "daily_capacity": 0},
-        {"depot_id": "D0080", "name": "BELFAST AIRPORT", "latitude": 54.6582, "longitude": -6.2158, "daily_capacity": 0},
-        {"depot_id": "D0077", "name": "BODMIN", "latitude": 50.4783, "longitude": -4.7039, "daily_capacity": 0},
-        {"depot_id": "D0060", "name": "BRACKNELL", "latitude": 51.4142, "longitude": -0.737, "daily_capacity": 2000},
-        {"depot_id": "D0071", "name": "BRIDGEND", "latitude": 51.502518, "longitude": -3.549231, "daily_capacity": 1000},
-        {"depot_id": "D0070", "name": "BRISTOL", "latitude": 51.5275, "longitude": -2.5911, "daily_capacity": 3000},
-        {"depot_id": "D0032", "name": "CARLISLE", "latitude": 54.922, "longitude": -2.9576, "daily_capacity": 0},
-        {"depot_id": "D0052", "name": "DARTFORD", "latitude": 51.4606, "longitude": 0.2564, "daily_capacity": 500},
-        {"depot_id": "D0034", "name": "DEESIDE", "latitude": 53.1998, "longitude": -2.997, "daily_capacity": 1000},
-        {"depot_id": "D0090", "name": "DUBLIN", "latitude": 53.34, "longitude": -6.26, "daily_capacity": 0},
-        {"depot_id": "D0014", "name": "EDINBURGH", "latitude": 55.8753, "longitude": -3.4897, "daily_capacity": 100},
-        {"depot_id": "D0201", "name": "EDINBURGH RUTLAND SQ", "latitude": 55.9486, "longitude": -3.2084, "daily_capacity": 0},
-        {"depot_id": "D0073", "name": "EXETER", "latitude": 50.7202, "longitude": -3.4647, "daily_capacity": 500},
-        {"depot_id": "D0202", "name": "FINGLAS Northern Cross", "latitude": 53.37, "longitude": -6.26, "daily_capacity": 0},
-        {"depot_id": "D0059", "name": "GATWICK", "latitude": 51.129, "longitude": -0.1717, "daily_capacity": 500},
-        {"depot_id": "D0203", "name": "GLASGLOW - GEORGE SQUARE", "latitude": 55.8616, "longitude": -4.2517, "daily_capacity": 0},
-        {"depot_id": "D0015", "name": "GLASGOW", "latitude": 55.8892, "longitude": -4.0684, "daily_capacity": 250},
-        {"depot_id": "D0023", "name": "GRIMSBY", "latitude": 53.5811, "longitude": -0.1208, "daily_capacity": 0},
-        {"depot_id": "D0053", "name": "HARLOW - MEAD PARK", "latitude": 51.788, "longitude": 0.1091, "daily_capacity": 500},
-        {"depot_id": "D0033", "name": "HAYDOCK", "latitude": 53.4777, "longitude": -2.6644, "daily_capacity": 3000},
-        {"depot_id": "D0047", "name": "HUNTINGDON", "latitude": 52.3464, "longitude": 0.1957, "daily_capacity": 500},
-        {"depot_id": "D0011", "name": "INVERNESS", "latitude": 57.4869, "longitude": -4.2487, "daily_capacity": 0},
-        {"depot_id": "D0048", "name": "IPSWICH", "latitude": 52.0288, "longitude": 1.2054, "daily_capacity": 500},
-        {"depot_id": "D0204", "name": "LDE 89 CHANCERY LANE", "latitude": 51.5162, "longitude": -0.1121, "daily_capacity": 0},
-        {"depot_id": "D0055", "name": "LONDON NORTH", "latitude": 51.5687, "longitude": -0.2368, "daily_capacity": 500},
-        {"depot_id": "D0058", "name": "LONDON SIX BRIDGES", "latitude": 51.4862, "longitude": 0.0674, "daily_capacity": 2000},
-        {"depot_id": "D0054", "name": "LUTON", "latitude": 51.8979, "longitude": -0.5045, "daily_capacity": 2500},
-        {"depot_id": "D0030", "name": "MANCHESTER", "latitude": 53.4613, "longitude": -2.3185, "daily_capacity": 4000},
-        {"depot_id": "D0025", "name": "MIDDLESBOROUGH", "latitude": 54.5862, "longitude": -1.2476, "daily_capacity": 500},
-        {"depot_id": "D0020", "name": "NEWCASTLE", "latitude": 54.9395, "longitude": -1.5174, "daily_capacity": 1000},
-        {"depot_id": "D0022", "name": "NORMANTON", "latitude": 53.7059, "longitude": -1.3885, "daily_capacity": 2500},
-        {"depot_id": "D0044", "name": "NORTHAMPTON", "latitude": 52.2763, "longitude": -0.8734, "daily_capacity": 2500},
-        {"depot_id": "D0049", "name": "NORWICH", "latitude": 52.6501, "longitude": 1.2616, "daily_capacity": 500},
-        {"depot_id": "D0042", "name": "NOTTINGHAM", "latitude": 52.9208, "longitude": -1.2865, "daily_capacity": 3000},
-        {"depot_id": "D0999", "name": "NUNEATON 1", "latitude": 52.499, "longitude": -1.4791, "daily_capacity": 5000},
-        {"depot_id": "D0998", "name": "NUNEATON 2", "latitude": 52.5053, "longitude": -1.4754, "daily_capacity": 0},
-        {"depot_id": "D0013", "name": "PERTH", "latitude": 56.4195, "longitude": -3.4614, "daily_capacity": 0},
-        {"depot_id": "D0072", "name": "PLYMOUTH", "latitude": 50.3898, "longitude": -4.0204, "daily_capacity": 0},
-        {"depot_id": "D0031", "name": "PRESTON", "latitude": 53.7913, "longitude": -2.6514, "daily_capacity": 500},
-        {"depot_id": "D0024", "name": "ROTHERHAM", "latitude": 53.4277, "longitude": -1.2421, "daily_capacity": 1000},
-        {"depot_id": "D0035", "name": "SHREWSBURY", "latitude": 52.7404, "longitude": -2.7295, "daily_capacity": 500},
-        {"depot_id": "D0092", "name": "SLIGO", "latitude": 54.1759, "longitude": -8.4823, "daily_capacity": 0},
-        {"depot_id": "D0036", "name": "STAFFORD", "latitude": 52.8164, "longitude": -2.0783, "daily_capacity": 500},
-        {"depot_id": "D0069", "name": "SWINDON", "latitude": 51.5529, "longitude": -1.8085, "daily_capacity": 500},
-        {"depot_id": "D0205", "name": "TOTTON x 1", "latitude": 50.9333, "longitude": -1.5064, "daily_capacity": 0},
-        {"depot_id": "D0206", "name": "TOTTON x 2", "latitude": 50.9333, "longitude": -1.5064, "daily_capacity": 0},
-        {"depot_id": "D0075", "name": "TOTTON/CHANDLERS FORD", "latitude": 50.98291, "longitude": -1.39029, "daily_capacity": 1000},
-        {"depot_id": "D0076", "name": "VERWOOD", "latitude": 50.8678, "longitude": -1.8517, "daily_capacity": 0},
-        {"depot_id": "D0037", "name": "WEST MIDLANDS", "latitude": 52.533, "longitude": -2.0763, "daily_capacity": 2000},
+    # These are the ONLY depot IDs that should exist
+    valid_depot_ids = [
+        "D0012", "D0056", "D0050", "D0051", "D0080", "D0077", "D0060", "D0071",
+        "D0070", "D0032", "D0052", "D0034", "D0090", "D0014", "D0201", "D0073",
+        "D0202", "D0059", "D0203", "D0015", "D0023", "D0053", "D0033", "D0047",
+        "D0011", "D0048", "D0204", "D0055", "D0058", "D0054", "D0030", "D0025",
+        "D0020", "D0022", "D0044", "D0049", "D0042", "D0999", "D0998", "D0013",
+        "D0072", "D0031", "D0024", "D0035", "D0092", "D0036", "D0069", "D0205",
+        "D0206", "D0075", "D0076", "D0037"
     ]
     
-    updated_count = 0
-    added_count = 0
+    # Find and delete depots not in the valid list
+    old_depots = db.query(Depot).filter(~Depot.depot_id.in_(valid_depot_ids)).all()
     
-    for depot_data in updated_depots:
-        existing = db.query(Depot).filter(Depot.depot_id == depot_data["depot_id"]).first()
-        
-        if existing:
-            existing.name = depot_data["name"]
-            existing.latitude = depot_data["latitude"]
-            existing.longitude = depot_data["longitude"]
-            existing.daily_capacity = depot_data["daily_capacity"]
-            updated_count += 1
-        else:
-            new_depot = Depot(
-                depot_id=depot_data["depot_id"],
-                name=depot_data["name"],
-                latitude=depot_data["latitude"],
-                longitude=depot_data["longitude"],
-                daily_capacity=depot_data["daily_capacity"]
-            )
-            db.add(new_depot)
-            added_count += 1
+    deleted_ids = [d.depot_id for d in old_depots]
+    deleted_count = len(old_depots)
+    
+    for depot in old_depots:
+        db.delete(depot)
     
     db.commit()
     
     return {
-        "message": "Depot data updated successfully!",
-        "depots_updated": updated_count,
-        "depots_added": added_count,
-        "total_depots": updated_count + added_count
+        "message": "Old depots removed!",
+        "depots_deleted": deleted_count,
+        "deleted_ids": deleted_ids
     }
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
