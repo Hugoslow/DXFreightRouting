@@ -12,6 +12,43 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
+@app.post("/calculate-distances")
+@app.get("/calculate-distances")
+def calculate_distances():
+    from app.database import SessionLocal
+    from app.models import Depot, CollectionPoint, CPDepotDistance
+    from math import radians, sin, cos, sqrt, atan2
+    
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 3959
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
+        return R * 2 * atan2(sqrt(a), sqrt(1-a))
+    
+    db = SessionLocal()
+    try:
+        # Clear existing distances
+        db.query(CPDepotDistance).delete()
+        db.commit()
+        
+        depots = db.query(Depot).all()
+        cps = db.query(CollectionPoint).all()
+        
+        count = 0
+        for cp in cps:
+            distances = [(d.depot_id, haversine(cp.latitude, cp.longitude, d.latitude, d.longitude)) for d in depots]
+            distances.sort(key=lambda x: x[1])
+            for rank, (depot_id, dist) in enumerate(distances, 1):
+                db.add(CPDepotDistance(cpid=cp.cpid, depot_id=depot_id, distance_miles=round(dist, 2), rank=rank))
+            count += 1
+        db.commit()
+        return {"message": f"Calculated distances for {count} collection points to {len(depots)} depots!"}
+    finally:
+        db.close()
+
+        
+
 @app.get("/cleanup-depots")
 def cleanup_depots(db: Session = Depends(get_db)):
     from app.models import Depot, CPDepotDistance, CapacityOverride, ManualOverride
