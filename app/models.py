@@ -37,6 +37,8 @@ class Depot(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     daily_capacity = Column(Integer, nullable=False, default=10000)
+    sortation_start_time = Column(String(5), default="08:00")
+    cutoff_time = Column(String(5), default="18:00")
     is_active = Column(Boolean, default=True)
 
 
@@ -50,6 +52,7 @@ class DailyVolume(Base):
     trailers = Column(Integer, nullable=False)
     imported_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     imported_at = Column(DateTime, default=datetime.utcnow)
+    collection_time = Column(String(5), default="09:00")
 
 
 class ManualOverride(Base):

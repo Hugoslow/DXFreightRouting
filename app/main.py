@@ -12,6 +12,41 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
+@app.get("/migrate-time-columns")
+def migrate_time_columns():
+    from sqlalchemy import text
+    from app.database import engine
+    
+    with engine.connect() as conn:
+        # Add columns to depots table
+        try:
+            conn.execute(text("ALTER TABLE depots ADD COLUMN sortation_start_time VARCHAR(5) DEFAULT '08:00'"))
+            conn.commit()
+            depots_start = "added"
+        except:
+            depots_start = "already exists"
+        
+        try:
+            conn.execute(text("ALTER TABLE depots ADD COLUMN cutoff_time VARCHAR(5) DEFAULT '18:00'"))
+            conn.commit()
+            depots_cutoff = "added"
+        except:
+            depots_cutoff = "already exists"
+        
+        # Add column to daily_volumes table
+        try:
+            conn.execute(text("ALTER TABLE daily_volumes ADD COLUMN collection_time VARCHAR(5) DEFAULT '09:00'"))
+            conn.commit()
+            volumes_time = "added"
+        except:
+            volumes_time = "already exists"
+    
+    return {
+        "depots_sortation_start_time": depots_start,
+        "depots_cutoff_time": depots_cutoff,
+        "daily_volumes_collection_time": volumes_time
+    }
+
 @app.post("/calculate-distances")
 @app.get("/calculate-distances")
 def calculate_distances():
