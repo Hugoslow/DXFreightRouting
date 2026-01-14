@@ -388,8 +388,9 @@
                 <li><a href="/capacity-overrides{% if selected_date %}?date={{ selected_date }}{% endif %}" class="{% if active_page == 'capacity-overrides' %}active{% endif %}">Capacity</a></li>
                 {% endif %}
                 <li><a href="/audit-log" class="{% if active_page == 'audit-log' %}active{% endif %}">Audit Log</a></li>
-                {% if user.role == 'Admin' %}
+               {% if user.role == 'Admin' %}
                 <li class="admin-menu">
+                    <a href="#" class="{% if active_page in ['users', 'setup', 'import-volumes', 'depot-times'] %}active{% endif %}">Admin ▼</a>
                     <div class="admin-menu-content">
                         <a href="/admin/users">User Management</a>
                         <a href="/admin/setup">System Setup</a>
