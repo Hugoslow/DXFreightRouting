@@ -1768,7 +1768,25 @@ def depot_times_page(
     if user.role != "Admin":
         return RedirectResponse(url="/dashboard", status_code=303)
     
-    depots = db.query(Depot).filter(Depot.is_active == True).order_by(Depot.name).all()
+    depots_raw = db.query(Depot).filter(Depot.is_active == True).order_by(Depot.name).all()
+    
+    # Calculate window hours for each depot
+    depots = []
+    for d in depots_raw:
+        start_time = d.sortation_start_time or "08:00"
+        cutoff_time = d.cutoff_time or "18:00"
+        start_mins = int(start_time.split(':')[0]) * 60 + int(start_time.split(':')[1])
+        cutoff_mins = int(cutoff_time.split(':')[0]) * 60 + int(cutoff_time.split(':')[1])
+        window_hours = round((cutoff_mins - start_mins) / 60, 1)
+        
+        depots.append({
+            'depot_id': d.depot_id,
+            'name': d.name,
+            'daily_capacity': d.daily_capacity,
+            'sortation_start_time': start_time,
+            'cutoff_time': cutoff_time,
+            'window_hours': window_hours
+        })
     
     return templates.TemplateResponse("depot_times.html", {
         "request": request,
