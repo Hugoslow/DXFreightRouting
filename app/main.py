@@ -148,7 +148,51 @@ def calculate_cost(distance_miles):
 
 
 def get_allocations(db: Session, selected_date: date):
-    """Core routing logic - allocates trailers from CPs to depots based on distance ranking and capacity"""
+    """Core routing logic - allocates trailers from CPs to depots based on distance ranking and time-based capacity"""
+    from datetime import datetime, timedelta
+    
+    def time_to_minutes(time_str):
+        """Convert HH:MM to minutes since midnight"""
+        if not time_str:
+            return 540  # Default 09:00
+        h, m = map(int, time_str.split(':'))
+        return h * 60 + m
+    
+    def minutes_to_time(mins):
+        """Convert minutes since midnight to HH:MM"""
+        h = int(mins // 60)
+        m = int(mins % 60)
+        return f"{h:02d}:{m:02d}"
+    
+    def calculate_arrival_time(collection_time_str, distance_miles):
+        """Calculate arrival time: collection + 1hr loading + travel time at 40mph"""
+        collection_mins = time_to_minutes(collection_time_str)
+        loading_mins = 60  # 1 hour loading
+        travel_mins = (distance_miles / 40) * 60  # 40mph
+        return collection_mins + loading_mins + travel_mins
+    
+    def calculate_available_capacity(depot, arrival_mins, base_capacity):
+        """Calculate capacity available at arrival time based on linear reduction"""
+        start_mins = time_to_minutes(depot.sortation_start_time or "08:00")
+        cutoff_mins = time_to_minutes(depot.cutoff_time or "18:00")
+        
+        # If arriving before sortation starts, full capacity
+        if arrival_mins <= start_mins:
+            return base_capacity
+        
+        # If arriving after cutoff, no capacity
+        if arrival_mins >= cutoff_mins:
+            return 0
+        
+        # Linear reduction: capacity reduces as day progresses
+        total_window = cutoff_mins - start_mins
+        time_remaining = cutoff_mins - arrival_mins
+        
+        if total_window <= 0:
+            return 0
+        
+        return int(base_capacity * (time_remaining / total_window))
+    
     volumes = db.query(DailyVolume).filter(DailyVolume.date == selected_date).all()
     
     if not volumes:
@@ -163,21 +207,26 @@ def get_allocations(db: Session, selected_date: date):
     depots = db.query(Depot).filter(Depot.is_active == True).all()
     depot_map = {d.depot_id: d for d in depots}
     
+    # Track allocated parcels per depot per time slot (we'll track total for simplicity)
     depot_allocated = {d.depot_id: 0 for d in depots}
-    depot_capacities = {}
+    depot_base_capacities = {}
     for d in depots:
         if d.depot_id in capacity_override_map:
-            depot_capacities[d.depot_id] = capacity_override_map[d.depot_id]
+            depot_base_capacities[d.depot_id] = capacity_override_map[d.depot_id]
         else:
-            depot_capacities[d.depot_id] = d.daily_capacity
+            depot_base_capacities[d.depot_id] = d.daily_capacity
     
     allocations = []
     
-    for volume in volumes:
+    # Sort volumes by collection time so earlier collections are allocated first
+    volumes_sorted = sorted(volumes, key=lambda v: time_to_minutes(v.collection_time or "09:00"))
+    
+    for volume in volumes_sorted:
         cp = db.query(CollectionPoint).filter(CollectionPoint.cpid == volume.cpid).first()
         if not cp:
             continue
         
+        collection_time = volume.collection_time or "09:00"
         parcels_per_trailer = volume.parcels // volume.trailers if volume.trailers > 0 else volume.parcels
         remainder = volume.parcels % volume.trailers if volume.trailers > 0 else 0
         
@@ -189,21 +238,42 @@ def get_allocations(db: Session, selected_date: date):
             trailer_parcels = parcels_per_trailer + (1 if trailer_num <= remainder else 0)
             
             override_key = (volume.cpid, trailer_num)
+            is_peak_arrival = False
+            
             if override_key in override_map:
                 assigned_depot_id = override_map[override_key]
                 is_override = True
             else:
                 assigned_depot_id = None
+                
+                # Try each depot in distance order
                 for dist in distances:
-                    depot_cap = depot_capacities.get(dist.depot_id, 0)
-                    if depot_cap > 0 and depot_allocated[dist.depot_id] + trailer_parcels <= depot_cap:
+                    depot = depot_map.get(dist.depot_id)
+                    if not depot:
+                        continue
+                    
+                    base_cap = depot_base_capacities.get(dist.depot_id, 0)
+                    if base_cap <= 0:
+                        continue
+                    
+                    # Calculate arrival time for this depot
+                    arrival_mins = calculate_arrival_time(collection_time, dist.distance_miles)
+                    
+                    # Calculate available capacity at arrival time
+                    available_cap = calculate_available_capacity(depot, arrival_mins, base_cap)
+                    
+                    # Check if there's room (considering what's already allocated)
+                    already_allocated = depot_allocated[dist.depot_id]
+                    if already_allocated + trailer_parcels <= available_cap:
                         assigned_depot_id = dist.depot_id
                         break
                 
+                # If no depot has capacity, assign to nearest and flag as Peak Arrival
                 if not assigned_depot_id and distances:
                     for dist in distances:
-                        if depot_capacities.get(dist.depot_id, 0) > 0:
+                        if depot_base_capacities.get(dist.depot_id, 0) > 0:
                             assigned_depot_id = dist.depot_id
+                            is_peak_arrival = True
                             break
                 
                 is_override = False
@@ -216,6 +286,10 @@ def get_allocations(db: Session, selected_date: date):
                 
                 depot = depot_map.get(assigned_depot_id)
                 
+                # Calculate arrival time for display
+                arrival_mins = calculate_arrival_time(collection_time, distance)
+                arrival_time = minutes_to_time(arrival_mins)
+                
                 allocations.append({
                     'cpid': volume.cpid,
                     'cp_name': cp.name,
@@ -225,9 +299,29 @@ def get_allocations(db: Session, selected_date: date):
                     'depot_name': depot.name if depot else assigned_depot_id,
                     'distance': distance,
                     'cost': calculate_cost(distance),
-                    'is_override': is_override
+                    'is_override': is_override,
+                    'collection_time': collection_time,
+                    'arrival_time': arrival_time,
+                    'is_peak_arrival': is_peak_arrival
                 })
     
+    # Calculate depot summaries
+    depot_summaries = []
+    for depot in depots:
+        allocated = depot_allocated.get(depot.depot_id, 0)
+        base_cap = depot_base_capacities.get(depot.depot_id, 0)
+        depot_summaries.append({
+            'depot_id': depot.depot_id,
+            'depot_name': depot.name,
+            'allocated': allocated,
+            'capacity': base_cap,
+            'utilisation': round((allocated / base_cap * 100), 1) if base_cap > 0 else 0,
+            'sortation_start': depot.sortation_start_time or "08:00",
+            'cutoff_time': depot.cutoff_time or "18:00"
+        })
+    
+    return allocations, depot_summaries
+
     depot_summary = []
     for depot_id, allocated in depot_allocated.items():
         if allocated > 0:
