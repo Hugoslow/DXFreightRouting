@@ -1008,7 +1008,6 @@ def export_audit_log(
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-
 @app.get("/depot-allocations")
 def depot_allocations_page(
     request: Request,
@@ -1033,30 +1032,36 @@ def depot_allocations_page(
     capacity_overrides = db.query(CapacityOverride).filter(CapacityOverride.date == selected_date).all()
     capacity_override_map = {co.depot_id: co.override_capacity for co in capacity_overrides}
     
+    # Initialize ALL depots first
+    all_depots = db.query(Depot).filter(Depot.is_active == True).all()
     depot_data = {}
+    for depot in all_depots:
+        capacity = capacity_override_map.get(depot.depot_id, depot.daily_capacity)
+        depot_data[depot.depot_id] = {
+            'depot_id': depot.depot_id,
+            'name': depot.name,
+            'capacity': capacity,
+            'has_override': depot.depot_id in capacity_override_map,
+            'allocated_parcels': 0,
+            'trailer_count': 0,
+            'allocations': []
+        }
+    
+    # Add allocation data
     for alloc in allocations:
         did = alloc['depot_id']
-        if did not in depot_data:
-            depot = db.query(Depot).filter(Depot.depot_id == did).first()
-            capacity = capacity_override_map.get(did, depot.daily_capacity if depot else 0)
-            depot_data[did] = {
-                'depot_id': did,
-                'name': alloc['depot_name'],
-                'capacity': capacity,
-                'has_override': did in capacity_override_map,
-                'allocated_parcels': 0,
-                'trailer_count': 0,
-                'allocations': []
-            }
-        depot_data[did]['allocated_parcels'] += alloc['parcels']
-        depot_data[did]['trailer_count'] += 1
-        depot_data[did]['allocations'].append(alloc)
+        if did in depot_data:
+            depot_data[did]['allocated_parcels'] += alloc['parcels']
+            depot_data[did]['trailer_count'] += 1
+            depot_data[did]['allocations'].append(alloc)
     
+    # Calculate utilisation
     for did in depot_data:
         cap = depot_data[did]['capacity']
         alloc_parcels = depot_data[did]['allocated_parcels']
         depot_data[did]['utilisation'] = (alloc_parcels / cap * 100) if cap > 0 else 0
     
+    # Sort by utilisation descending
     depot_summary = sorted(depot_data.values(), key=lambda x: x['utilisation'], reverse=True)
     
     selected_depot = None
@@ -1071,8 +1076,6 @@ def depot_allocations_page(
         "depot_summary": depot_summary,
         "selected_depot": selected_depot
     })
-
-
 @app.get("/expected-costs")
 def expected_costs_page(
     request: Request,
