@@ -390,11 +390,11 @@
                 <li><a href="/audit-log" class="{% if active_page == 'audit-log' %}active{% endif %}">Audit Log</a></li>
                 {% if user.role == 'Admin' %}
                 <li class="admin-menu">
-                    <a href="#" class="{% if active_page in ['users', 'setup', 'import-volumes'] %}active{% endif %}">Admin ▼</a>
                     <div class="admin-menu-content">
                         <a href="/admin/users">User Management</a>
                         <a href="/admin/setup">System Setup</a>
                         <a href="/import-volumes">Import Volumes</a>
+                        <a href="/depot-times">Depot Times</a>
                     </div>
                 </li>
                 {% elif user.role == 'Operator' %}

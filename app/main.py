@@ -637,11 +637,24 @@ async def import_volumes_upload(
                     skipped += 1
                     continue
                 
+                # Get collection time if provided
+                collection_time = "09:00"  # Default
+                if 'Collection Time' in df.columns:
+                    ct = row.get('Collection Time')
+                    if pd.notna(ct):
+                        ct_str = str(ct).strip()
+                        # Handle time formats
+                        if ':' in ct_str:
+                            collection_time = ct_str[:5]  # Take HH:MM
+                        elif len(ct_str) == 4 and ct_str.isdigit():
+                            collection_time = f"{ct_str[:2]}:{ct_str[2:]}"  # 0900 -> 09:00
+                
                 volume = DailyVolume(
                     date=row_date,
                     cpid=cpid,
                     parcels=parcels,
                     trailers=trailers,
+                    collection_time=collection_time,
                     imported_by=user.id,
                     imported_at=datetime.utcnow()
                 )
@@ -694,9 +707,11 @@ def download_template(template_type: str, request: Request, db: Session = Depend
             'Date': ['2026-01-07', '2026-01-07', '2026-01-08'],
             'CPID': ['CP001', 'CP002', 'CP001'],
             'Parcels': [5000, 3500, 4200],
-            'Trailers': [3, 2, 3]
+            'Trailers': [3, 2, 3],
+            'Collection Time': ['09:00', '14:30', '11:00']
         })
         filename = "volumes_import_template.xlsx"
+
     elif template_type == "capacity":
         df = pd.DataFrame({
             'Date': ['2026-01-07', '2026-01-07'],
@@ -1737,4 +1752,67 @@ def export_depots(request: Request, db: Session = Depends(get_db)):
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.get("/depot-times")
+def depot_times_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    message: str = Query(None),
+    error: bool = Query(False)
+):
+    user = get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    if user.role != "Admin":
+        return RedirectResponse(url="/dashboard", status_code=303)
+    
+    depots = db.query(Depot).filter(Depot.is_active == True).order_by(Depot.name).all()
+    
+    return templates.TemplateResponse("depot_times.html", {
+        "request": request,
+        "user": user,
+        "active_page": "depot-times",
+        "depots": depots,
+        "message": message,
+        "error": error
+    })
+
+
+@app.post("/depot-times")
+async def update_depot_times(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    user = get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    if user.role != "Admin":
+        return RedirectResponse(url="/dashboard", status_code=303)
+    
+    form_data = await request.form()
+    
+    depots = db.query(Depot).filter(Depot.is_active == True).all()
+    updated = 0
+    
+    for depot in depots:
+        start_key = f"start_{depot.depot_id}"
+        cutoff_key = f"cutoff_{depot.depot_id}"
+        
+        new_start = form_data.get(start_key)
+        new_cutoff = form_data.get(cutoff_key)
+        
+        if new_start and new_cutoff:
+            if depot.sortation_start_time != new_start or depot.cutoff_time != new_cutoff:
+                depot.sortation_start_time = new_start
+                depot.cutoff_time = new_cutoff
+                updated += 1
+    
+    db.commit()
+    
+    return RedirectResponse(
+        url=f"/depot-times?message=Updated {updated} depot(s)",
+        status_code=303
     )

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Depot Times - DX Freight Routing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Depot Sortation Times</h2>
+    <p>Configure sortation windows for time-based capacity calculations</p>
+</div>
+
+{% if message %}
+<div class="alert {% if error %}alert-error{% else %}alert-success{% endif %}">
+    {{ message }}
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa;">
+    <h4 style="margin-bottom: 10px;">How it works:</h4>
+    <ul style="color: #666; font-size: 13px; margin-left: 20px;">
+        <li><strong>Sortation Start:</strong> When the depot begins sorting (capacity is 100%)</li>
+        <li><strong>Cutoff Time:</strong> When sorting must be complete (capacity reduces to 0%)</li>
+        <li>Capacity reduces linearly between start and cutoff times</li>
+        <li>Trailers arriving after cutoff are flagged as "Peak Arrival"</li>
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Depot Times</h3>
+    </div>
+    <form action="/depot-times" method="post">
+        <table>
+            <thead>
+                <tr>
+                    <th>Depot ID</th>
+                    <th>Depot Name</th>
+                    <th>Daily Capacity</th>
+                    <th>Sortation Start</th>
+                    <th>Cutoff Time</th>
+                    <th>Window (hrs)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for depot in depots %}
+                <tr>
+                    <td>{{ depot.depot_id }}</td>
+                    <td>{{ depot.name }}</td>
+                    <td>{{ depot.daily_capacity }}</td>
+                    <td>
+                        <input type="time" name="start_{{ depot.depot_id }}" value="{{ depot.sortation_start_time or '08:00' }}" style="padding: 5px;">
+                    </td>
+                    <td>
+                        <input type="time" name="cutoff_{{ depot.depot_id }}" value="{{ depot.cutoff_time or '18:00' }}" style="padding: 5px;">
+                    </td>
+                    <td style="color: #666;">
+                        {% set start_mins = (depot.sortation_start_time or '08:00').split(':')[0]|int * 60 + (depot.sortation_start_time or '08:00').split(':')[1]|int %}
+                        {% set cutoff_mins = (depot.cutoff_time or '18:00').split(':')[0]|int * 60 + (depot.cutoff_time or '18:00').split(':')[1]|int %}
+                        {{ ((cutoff_mins - start_mins) / 60)|round(1) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">Save All Changes</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
