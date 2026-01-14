@@ -318,15 +318,17 @@ def get_allocations(db: Session, selected_date: date):
                     'is_peak_arrival': is_peak_arrival
                 })
     
-    # Calculate depot summaries
+    # Calculate depot summaries - only include depots with allocations
     depot_summaries = []
     for depot in depots:
         allocated = depot_allocated.get(depot.depot_id, 0)
+        if allocated == 0:
+            continue  # Skip depots with no allocations
         base_cap = depot_base_capacities.get(depot.depot_id, 0)
         depot_summaries.append({
             'depot_id': depot.depot_id,
-            'depot_name': depot.name,
-            'allocated': allocated,
+            'name': depot.name,
+            'allocated_parcels': allocated,
             'capacity': base_cap,
             'utilisation': round((allocated / base_cap * 100), 1) if base_cap > 0 else 0,
             'sortation_start': depot.sortation_start_time or "08:00",
