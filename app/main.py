@@ -12,6 +12,19 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
+@app.get("/debug-depots")
+def debug_depots(db: Session = Depends(get_db)):
+    depots = db.query(Depot).all()
+    return [
+        {
+            "id": d.id,
+            "depot_id": d.depot_id,
+            "name": d.name,
+            "capacity": d.daily_capacity
+        }
+        for d in depots
+    ]
+
 @app.get("/migrate-time-columns")
 def migrate_time_columns():
     from sqlalchemy import text
