@@ -35,24 +35,30 @@
                 <th>Collection Point</th>
                 <th>Trailer #</th>
                 <th>Parcels</th>
+                <th>Collection</th>
+                <th>Arrival</th>
                 <th>Depot</th>
                 <th>Distance (miles)</th>
                 <th>Cost</th>
                 <th>Type</th>
             </tr>
         </thead>
-        <tbody>
+       <tbody>
             {% for alloc in allocations %}
-            <tr>
+            <tr style="{% if alloc.is_peak_arrival %}background-color: #fff3cd;{% endif %}">
                 <td><a href="/collections?date={{ selected_date }}&cpid={{ alloc.cpid }}" style="color: #0099da; text-decoration: none;">{{ alloc.cpid }}</a></td>
                 <td><a href="/collections?date={{ selected_date }}&cpid={{ alloc.cpid }}" style="color: #0099da; text-decoration: none;">{{ alloc.cp_name }}</a></td>
                 <td>{{ alloc.trailer_num }}</td>
                 <td>{{ alloc.parcels }}</td>
+                <td>{{ alloc.collection_time or '09:00' }}</td>
+                <td>{{ alloc.arrival_time or '-' }}</td>
                 <td><a href="/collections?date={{ selected_date }}&depot={{ alloc.depot_id }}" style="color: #0099da; text-decoration: none;">{{ alloc.depot_name }}</a></td>
                 <td>{{ "%.1f"|format(alloc.distance) }}</td>
                 <td>£{{ "%.2f"|format(alloc.cost) }}</td>
                 <td>
-                    {% if alloc.is_override %}
+                    {% if alloc.is_peak_arrival %}
+                    <span class="badge badge-danger">Peak Arrival</span>
+                    {% elif alloc.is_override %}
                     <span class="badge badge-warning">Override</span>
                     {% else %}
                     <span class="badge badge-success">Auto</span>
