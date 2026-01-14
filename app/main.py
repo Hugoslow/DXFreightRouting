@@ -1076,8 +1076,12 @@ def depot_allocations_page(
         alloc_parcels = depot_data[did]['allocated_parcels']
         depot_data[did]['utilisation'] = (alloc_parcels / cap * 100) if cap > 0 else 0
     
-    # Sort by utilisation descending
-    depot_summary = sorted(depot_data.values(), key=lambda x: x['utilisation'], reverse=True)
+   # Sort by utilisation descending, exclude depots with no allocations
+    depot_summary = sorted(
+        [d for d in depot_data.values() if d['allocated_parcels'] > 0],
+        key=lambda x: x['utilisation'],
+        reverse=True
+    )
     
     selected_depot = None
     if depot_id and depot_id in depot_data:
