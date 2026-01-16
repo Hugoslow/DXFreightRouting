@@ -225,7 +225,7 @@ def get_allocations(db: Session, selected_date: date):
         return [], []
     
     overrides = db.query(ManualOverride).filter(ManualOverride.date == selected_date).all()
-    override_map = {(o.cpid, o.trailer_number): o.to_depot_id for o in overrides}
+    override_map = {(o.cpid, o.trailer_number, o.collection_time): o.to_depot_id for o in overrides}
     
     capacity_overrides = db.query(CapacityOverride).filter(CapacityOverride.date == selected_date).all()
     capacity_override_map = {co.depot_id: co.override_capacity for co in capacity_overrides}
@@ -263,7 +263,7 @@ def get_allocations(db: Session, selected_date: date):
         for trailer_num in range(1, volume.trailers + 1):
             trailer_parcels = parcels_per_trailer + (1 if trailer_num <= remainder else 0)
             
-            override_key = (volume.cpid, trailer_num)
+            override_key = (volume.cpid, trailer_num, collection_time)
             is_peak_arrival = False
             
             if override_key in override_map:
