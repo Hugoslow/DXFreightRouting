@@ -62,6 +62,7 @@ class ManualOverride(Base):
     date = Column(Date, nullable=False, index=True)
     cpid = Column(String(20), ForeignKey("collection_points.cpid"), nullable=False)
     trailer_number = Column(Integer, nullable=False)
+    collection_time = Column(String(5), default="09:00")
     to_depot_id = Column(String(20), ForeignKey("depots.depot_id"), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

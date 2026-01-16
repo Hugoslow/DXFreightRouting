@@ -12,6 +12,19 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
+@app.get("/migrate-override-time")
+def migrate_override_time():
+    from sqlalchemy import text
+    from app.database import engine
+    
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE manual_overrides ADD COLUMN collection_time VARCHAR(5) DEFAULT '09:00'"))
+            conn.commit()
+            return {"message": "collection_time column added to manual_overrides"}
+        except:
+            return {"message": "column already exists"}
+
 @app.get("/debug-depots")
 def debug_depots(db: Session = Depends(get_db)):
     depots = db.query(Depot).all()
