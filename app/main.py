@@ -849,7 +849,8 @@ def add_override(
     existing = db.query(ManualOverride).filter(
         ManualOverride.date == override_date,
         ManualOverride.cpid == cpid,
-        ManualOverride.trailer_number == trailer_number
+        ManualOverride.trailer_number == trailer_number,
+        ManualOverride.collection_time == collection_time
     ).first()
     
     if existing:
