@@ -35,7 +35,7 @@
                     <select name="cpid" id="cp-select" required onchange="updateTrailerMax()">
                         <option value="">Select CP...</option>
                         {% for cp in collection_points %}
-                        <option value="{{ cp.cpid }}" data-trailers="{{ cp.max_trailers }}">{{ cp.cpid }} - {{ cp.name }} ({{ cp.max_trailers }} trailers)</option>
+                        <option value="{{ cp.cpid }}" data-trailers="{{ cp.max_trailers }}" data-collection-time="{{ cp.collection_time }}">{{ cp.cpid }} - {{ cp.name }} ({{ cp.max_trailers }} trailers)</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -44,6 +44,10 @@
                     <select name="trailer_number" id="trailer-select" required>
                         <option value="">Select CP first...</option>
                     </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Collection Time</label>
+                    <input type="time" name="collection_time" id="collection-time" value="09:00" required style="width: 100%;">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Send To Depot</label>
@@ -80,6 +84,7 @@
                     <th>CPID</th>
                     <th>Collection Point</th>
                     <th>Trailer #</th>
+                    <th>Collection Time</th>
                     <th>Override Depot</th>
                     <th>Created By</th>
                     <th>Created At</th>
@@ -94,6 +99,7 @@
                     <td><strong>{{ o.cpid }}</strong></td>
                     <td>{{ o.cp_name }}</td>
                     <td><span class="badge badge-info">Trailer {{ o.trailer_number }}</span></td>
+                    <td>{{ o.collection_time }}</td>
                     <td>{{ o.to_depot_id }} - {{ o.depot_name }}</td>
                     <td>{{ o.created_by_name }}</td>
                     <td>{{ o.created_at }}</td>
@@ -141,6 +147,7 @@
     function updateTrailerMax() {
         var cpSelect = document.getElementById('cp-select');
         var trailerSelect = document.getElementById('trailer-select');
+        var collectionTimeInput = document.getElementById('collection-time');
         var selectedOption = cpSelect.options[cpSelect.selectedIndex];
         
         // Clear existing options
@@ -148,10 +155,12 @@
         
         if (selectedOption.value === '') {
             trailerSelect.innerHTML = '<option value="">Select CP first...</option>';
+            collectionTimeInput.value = '09:00';
             return;
         }
         
         var maxTrailers = parseInt(selectedOption.getAttribute('data-trailers')) || 1;
+        var collectionTime = selectedOption.getAttribute('data-collection-time') || '09:00';
         
         for (var i = 1; i <= maxTrailers; i++) {
             var option = document.createElement('option');
@@ -159,6 +168,8 @@
             option.text = 'Trailer ' + i;
             trailerSelect.appendChild(option);
         }
+        
+        collectionTimeInput.value = collectionTime;
     }
 </script>
 {% endblock %}

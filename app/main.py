@@ -785,6 +785,7 @@ def overrides_page(
             'cpid': o.cpid,
             'cp_name': cp.name if cp else '',
             'trailer_number': o.trailer_number,
+            'collection_time': o.collection_time or '09:00',
             'to_depot_id': o.to_depot_id,
             'depot_name': depot.name if depot else '',
             'created_by_name': created_by.username if created_by else '',
@@ -803,13 +804,15 @@ def overrides_page(
         CollectionPoint.cpid.in_(cpids_with_volumes)
     ).order_by(CollectionPoint.cpid).all() if cpids_with_volumes else []
     
-    # Add trailer count to each CP for the dropdown
+    # Add trailer count and collection time to each CP for the dropdown
     cp_list = []
     for cp in collection_points:
+        volume = next((v for v in volumes_for_date if v.cpid == cp.cpid), None)
         cp_list.append({
             'cpid': cp.cpid,
             'name': cp.name,
-            'max_trailers': cp_trailer_counts.get(cp.cpid, 1)
+            'max_trailers': cp_trailer_counts.get(cp.cpid, 1),
+            'collection_time': volume.collection_time if volume else '09:00'
         })
     
     depots = db.query(Depot).filter(Depot.is_active == True).order_by(Depot.depot_id).all()
@@ -834,7 +837,8 @@ def add_override(
     date: str = Form(...),
     cpid: str = Form(...),
     trailer_number: int = Form(...),
-    to_depot_id: str = Form(...)
+    to_depot_id: str = Form(...),
+    collection_time: str = Form("09:00")
 ):
     user = get_current_user_from_cookie(request, db)
     if not user or user.role not in ['Admin', 'Operator']:
@@ -858,6 +862,7 @@ def add_override(
         date=override_date,
         cpid=cpid,
         trailer_number=trailer_number,
+        collection_time=collection_time,
         to_depot_id=to_depot_id,
         created_by=user.id,
         created_at=datetime.utcnow()
