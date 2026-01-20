@@ -168,9 +168,9 @@ SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
 
 
 def calculate_cost(distance_miles):
-    """Calculate transport cost: £50 base + £1.50/mile, minimum £120"""
-    cost = 50 + (distance_miles * 1.50)
-    return max(cost, 120)
+    """Calculate transport cost: £150 base + £1.80/mile, minimum £200"""
+    cost = 150 + (distance_miles * 1.80)
+    return max(cost, 200)
 
 
 def get_allocations(db: Session, selected_date: date):
