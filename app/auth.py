@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 
-SECRET_KEY = "dx-freight-routing-secret-key-change-in-production"
+import os
+SECRET_KEY = os.getenv("SECRET_KEY", "dx-freight-routing-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
