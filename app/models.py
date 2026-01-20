@@ -14,6 +14,8 @@ class User(Base):
     role = Column(String(20), nullable=False, default="Viewer")  # Admin, Operator, Viewer
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
