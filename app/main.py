@@ -12,28 +12,6 @@ import os
 
 app = FastAPI(title="DX Freight Routing System")
 
-@app.get("/migrate-login-security")
-def migrate_login_security():
-    from sqlalchemy import text
-    from app.database import engine
-    
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0"))
-            conn.commit()
-            attempts = "added"
-        except:
-            attempts = "already exists"
-        
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP"))
-            conn.commit()
-            locked = "added"
-        except:
-            locked = "already exists"
-    
-    return {"failed_login_attempts": attempts, "locked_until": locked}
-
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
