@@ -404,9 +404,11 @@
             </ul>
         </div>
         <div class="header-right">
-            <span>{{ user.username }} ({{ user.role }})</span>
-            <a href="/logout">Sign Out</a>
-        </div>
+    <span>{{ user.username }} ({{ user.role }})</span>
+    <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+    <a href="/change-password">Change Password</a>
+    <a href="/logout">Sign Out</a>
+</div>
     </header>
     <main class="main-content">
         {% block content %}{% endblock %}
