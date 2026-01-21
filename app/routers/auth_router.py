@@ -76,52 +76,7 @@ def login(
     user.last_login = datetime.utcnow()
     db.commit()
     
-audit = AuditLog(
-            user_id=user.id,
-            action_type="VOLUME_IMPORT",
-            entity_type="DailyVolume",
-            entity_id=file.filename,
-            old_value=None,
-            new_value=f"Imported {imported}, skipped {skipped}",
-            ip_address=request.client.host
-        )
-        db.add(audit)
-        db.commit()
-    
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    
-    response = RedirectResponse(url="/dashboard", status_code=303)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
-    return response
-        audit = AuditLog(
-            user_id=None,
-            action_type="LOGIN_FAILED",
-            entity_type="User",
-            entity_id=username,
-            old_value=None,
-            new_value=None,
-            ip_address=request.client.host
-        )
-        db.add(audit)
-        db.commit()
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid username or password"})
-    
-    if not user.is_active:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Account is disabled"})
-    
-    user.last_login = datetime.utcnow()
-    db.commit()
-    
+    # Log successful login
     audit = AuditLog(
         user_id=user.id,
         action_type="LOGIN_SUCCESS",
