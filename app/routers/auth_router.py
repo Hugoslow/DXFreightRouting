@@ -76,17 +76,17 @@ def login(
     user.last_login = datetime.utcnow()
     db.commit()
     
-    audit = AuditLog(
-        user_id=user.id,
-        action_type="LOGIN_SUCCESS",
-        entity_type="User",
-        entity_id=str(user.id),
-        old_value=None,
-        new_value=None,
-        ip_address=request.client.host
-    )
-    db.add(audit)
-    db.commit()
+audit = AuditLog(
+            user_id=user.id,
+            action_type="VOLUME_IMPORT",
+            entity_type="DailyVolume",
+            entity_id=file.filename,
+            old_value=None,
+            new_value=f"Imported {imported}, skipped {skipped}",
+            ip_address=request.client.host
+        )
+        db.add(audit)
+        db.commit()
     
     access_token = create_access_token(
         data={"sub": user.username},
